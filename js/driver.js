@@ -29,7 +29,14 @@ const setStatus = (message) => {
 
 const renderDriverOptions = () => {
   if (!driverSelect) return;
+  const previousValue = driverSelect.value;
   driverSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = bilingual("Pilih nama", "Select your name");
+  placeholder.disabled = true;
+  driverSelect.appendChild(placeholder);
+  let restoredSelection = false;
   state.drivers
     .filter((driver) => driver.active !== false)
     .forEach((driver) => {
@@ -38,9 +45,15 @@ const renderDriverOptions = () => {
       const name = driver.display_name || driver.driver_id || "Unnamed Driver";
       opt.textContent = `${name}${driver.category ? ` (${driver.category})` : ""}`;
       driverSelect.appendChild(opt);
+      if (!restoredSelection && opt.value && opt.value === previousValue) {
+        restoredSelection = true;
+      }
     });
-  if (!driverSelect.value && driverSelect.options.length) {
-    driverSelect.value = driverSelect.options[0].value;
+  if (restoredSelection) {
+    driverSelect.value = previousValue;
+    placeholder.selected = false;
+  } else {
+    placeholder.selected = true;
   }
 };
 
