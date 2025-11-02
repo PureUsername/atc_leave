@@ -9,7 +9,21 @@ const state = {
   maxPerDay: 3,
 };
 
-const SNAPSHOT_CHAT_ID = "120363368545737149@g.us";
+const SNAPSHOT_CHAT_ID = "120363406616265454@g.us";
+const SNAPSHOT_ENDPOINTS = (() => {
+  const endpoints = new Set();
+  if (typeof window === "object" && window?.location?.origin) {
+    endpoints.add(`${window.location.origin}/whatsapp/send`);
+  }
+  const host = typeof window === "object" ? window.location.hostname : "";
+  if (host === "localhost" || host === "127.0.0.1") {
+    endpoints.add("http://localhost:3000/send");
+  }
+  if (!endpoints.size) {
+    endpoints.add("http://localhost:3000/send");
+  }
+  return Array.from(endpoints);
+})();
 const driverSelect = qs("#driverSelect");
 const capacityHintContainer = qs("#capacityHints");
 const statusLabel = qs("#status");
@@ -143,34 +157,42 @@ const sanitizeFilenamePart = (value) => {
 const sendSnapshotToChat = async ({ base64, caption, month, driver }) => {
   const driverPart = sanitizeFilenamePart(driver?.driver_id || driver?.display_name || "driver");
   const filename = `calendar-${month}-${driverPart}.jpg`;
-  let response;
-  try {
-    response = await fetch("http://localhost:3000/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chatId: SNAPSHOT_CHAT_ID,
-        base64,
-        mimeType: "image/jpeg",
-        filename,
-        caption,
-      }),
-    });
-  } catch (error) {
-    throw new Error(error?.message || "Network error while sending snapshot.");
-  }
-  if (!response.ok) {
-    let message = `Snapshot API failed (${response.status})`;
+  const payload = {
+    chatId: SNAPSHOT_CHAT_ID,
+    base64,
+    mimeType: "image/jpeg",
+    filename,
+    caption,
+  };
+  const errors = [];
+  for (const endpoint of SNAPSHOT_ENDPOINTS) {
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      errors.push(error?.message || `Network error calling ${endpoint}`);
+      continue;
+    }
+    if (response.ok) {
+      return;
+    }
     try {
       const data = await response.json();
       if (data?.message) {
-        message = data.message;
+        errors.push(`${endpoint}: ${data.message}`);
+      } else {
+        errors.push(`${endpoint}: HTTP ${response.status}`);
       }
     } catch (error) {
-      // Ignore JSON parse errors.
+      errors.push(`${endpoint}: HTTP ${response.status}`);
     }
-    throw new Error(message);
   }
+  const finalMessage = errors.length ? errors[errors.length - 1] : "Snapshot API request failed.";
+  throw new Error(finalMessage);
 };
 
 const sendSnapshotsForDates = async (dates, driver) => {
@@ -371,6 +393,19 @@ const submitForm = async () => {
       );
       await afterApplied(response.applied_dates, { driver, driverId });
     } else {
+      const errors = Array.isArray(response.errors) ? response.errors : [];
+      const hasFullError = errors.some((err) => err?.reason === "full");
+      if (hasFullError && state.selected.start) {
+        state.pendingForceStart = state.selected.start;
+        qs("#forceModal")?.classList.remove("hidden");
+        const promptMessage = bilingual(
+          "Tarikh pilihan penuh. Mohon 3 hari bekerja berturut-turut bermula tarikh mula?",
+          "Selected dates are full. Apply 3 consecutive working days from your start date?"
+        );
+        toast(promptMessage, "error", { position: "center" });
+        setStatus(promptMessage);
+        return;
+      }
       const message = response.message || "Failed to submit leave.";
       toast(
         `${bilingual("Gagal menghantar permohonan", "Failed to submit leave")}: ${message}`,
