@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Truck Driver Leave</title>
+  <title>Cuti Pemandu Lori / Driver Leave System</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
   <meta name="atc-api-base" content="https://autocash.my/atc/public" />
   <style>
     .chip{ @apply inline-flex items-center px-2 py-1 text-xs rounded bg-gray-100; }
@@ -17,39 +18,33 @@
   <div class="max-w-4xl mx-auto p-6 space-y-6">
     <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 border-b pb-4">
       <div>
-        <h1 class="text-2xl font-bold">Truck Driver Leave</h1>
-        <p class="text-sm text-slate-500">Asia/Kuala_Lumpur timezone</p>
+        <h1 class="text-2xl font-bold">Cuti Pemandu Lori / Driver Leave System</h1>
       </div>
-      <a href="admin.html" class="inline-flex items-center px-3 py-2 text-sm rounded-lg bg-slate-800 text-white hover:bg-slate-900">
-        Go to Admin & Calendar
-      </a>
     </header>
 
     <section class="bg-white rounded-2xl shadow p-5">
-      <h2 class="font-semibold mb-4">Apply for Leave</h2>
+      <h2 class="font-semibold mb-4">Mohon Cuti / Apply for Leave</h2>
       <div class="grid md:grid-cols-2 gap-4">
         <label class="block">
-          <span class="text-sm">Driver</span>
+          <span class="text-sm">Pemandu / Driver</span>
           <select id="driverSelect" class="mt-1 w-full border rounded p-2"></select>
         </label>
         <label class="block col-span-2">
-          <span class="text-sm">Date Range</span>
-          <div class="mt-1 flex items-center gap-2">
-            <input id="dateStart" type="date" class="w-full border rounded p-2" />
-            <span class="text-slate-400">to</span>
-            <input id="dateEnd" type="date" class="w-full border rounded p-2" />
-          </div>
+          <span class="text-sm">Julat Tarikh / Date Range</span>
+          <input id="dateRange" type="text" class="mt-1 w-full border rounded p-2 bg-white" placeholder="Pilih julat tarikh / Select date range" readonly />
         </label>
       </div>
 
       <div id="capacityHints" class="mt-4 flex flex-wrap gap-2"></div>
 
       <div class="mt-4 flex items-center gap-3">
-        <button id="btnSubmit" class="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700">Submit</button>
+        <button id="btnSubmit" class="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700">Hantar / Submit</button>
         <span id="status" class="text-sm text-slate-500"></span>
       </div>
 
       <p class="text-xs text-slate-500 mt-4">
+        Maksimum 3 pemandu boleh bercuti setiap hari. Jika hari pilihan penuh, anda boleh pilih untuk
+        <strong>paksa 3 hari bekerja berturut-turut</strong> bermula dari tarikh mula anda (hujung minggu tidak dikira). /
         Maximum 3 drivers can be on leave per day. If a selected day is full, you may opt to
         <strong>force 3 consecutive working days</strong> starting from your start date (weekends not counted).
       </p>
@@ -58,18 +53,22 @@
 
   <div id="forceModal" class="hidden fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full">
-      <h3 class="font-semibold text-lg">Daily Limit Reached</h3>
+      <h3 class="font-semibold text-lg">Had Harian Tercapai / Daily Limit Reached</h3>
       <p class="mt-2 text-sm">
+        Satu atau lebih hari pilihan sudah mencapai jumlah maksimum pemandu bercuti. Adakah anda mahu mohon
+        <strong>3 hari bekerja berturut-turut</strong> bermula dari <strong>tarikh mula</strong> anda (tidak termasuk hujung minggu)? /
         One or more selected days already have the maximum number of drivers on leave. Do you want to apply for
         <strong>3 consecutive working days</strong> starting from your <strong>start date</strong> (weekends excluded)?
       </p>
       <div class="mt-4 flex gap-2 justify-end">
-        <button id="btnCancelForce" class="px-3 py-2 rounded bg-slate-200">Cancel</button>
-        <button id="btnConfirmForce" class="px-3 py-2 rounded bg-blue-600 text-white">Yes, apply 3 days</button>
+        <button id="btnCancelForce" class="px-3 py-2 rounded bg-slate-200">Batal / Cancel</button>
+        <button id="btnConfirmForce" class="px-3 py-2 rounded bg-blue-600 text-white">Ya, mohon 3 hari / Yes, apply 3 days</button>
       </div>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ms.js"></script>
   <script type="module" src="./js/driver.js"></script>
 </body>
 </html>
