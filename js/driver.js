@@ -9,7 +9,7 @@ const state = {
   maxPerDay: 3,
 };
 
-const SNAPSHOT_CHAT_ID = "120363406616265454@g.us";
+const SNAPSHOT_CHAT_ID = "120363368545737149@g.us";
 const SNAPSHOT_ENDPOINTS = (() => {
   const endpoints = new Set();
   if (typeof window === "object" && window?.location?.origin) {
