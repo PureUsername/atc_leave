@@ -24,18 +24,21 @@
 
     <section class="bg-white rounded-2xl shadow p-5">
       <h2 class="font-semibold mb-4">Mohon Cuti / Apply for Leave</h2>
-      <div class="grid md:grid-cols-2 gap-4">
-        <label class="block">
-          <span class="text-sm">Pemandu / Driver</span>
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <label class="flex-1 block">
+          <span class="text-sm">Nama Kamu / Your Name</span>
           <select id="driverSelect" class="mt-1 w-full border rounded p-2"></select>
         </label>
-        <label class="block col-span-2">
+        <label class="flex-1 block">
           <span class="text-sm">Julat Tarikh / Date Range</span>
           <input id="dateRange" type="text" class="mt-1 w-full border rounded p-2 bg-white" placeholder="Pilih julat tarikh / Select date range" readonly />
         </label>
       </div>
 
-      <div id="capacityHints" class="mt-4 flex flex-wrap gap-2"></div>
+      <p class="text-sm mt-4">
+        Bilangan pemandu yang telah mengambil cuti pada hari tersebut / Number of employees who have taken leave on that day
+      </p>
+      <div id="capacityHints" class="mt-2 overflow-x-auto text-sm"></div>
 
       <div class="mt-4 flex items-center gap-3">
         <button id="btnSubmit" class="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700">Hantar / Submit</button>
@@ -44,7 +47,9 @@
 
       <p class="text-xs text-slate-500 mt-4">
         Maksimum 3 pemandu boleh bercuti setiap hari. Jika hari pilihan penuh, anda boleh pilih untuk
-        <strong>paksa 3 hari bekerja berturut-turut</strong> bermula dari tarikh mula anda (hujung minggu tidak dikira). /
+        <strong>paksa 3 hari bekerja berturut-turut</strong> bermula dari tarikh mula anda (hujung minggu tidak dikira).
+      </p>
+      <p class="text-xs text-slate-500 mt-4">
         Maximum 3 drivers can be on leave per day. If a selected day is full, you may opt to
         <strong>force 3 consecutive working days</strong> starting from your start date (weekends not counted).
       </p>
@@ -56,7 +61,9 @@
       <h3 class="font-semibold text-lg">Had Harian Tercapai / Daily Limit Reached</h3>
       <p class="mt-2 text-sm">
         Satu atau lebih hari pilihan sudah mencapai jumlah maksimum pemandu bercuti. Adakah anda mahu mohon
-        <strong>3 hari bekerja berturut-turut</strong> bermula dari <strong>tarikh mula</strong> anda (tidak termasuk hujung minggu)? /
+        <strong>3 hari bekerja berturut-turut</strong> bermula dari <strong>tarikh mula</strong> anda (tidak termasuk hujung minggu)?
+      </p>
+      <p class="mt-2 text-sm">
         One or more selected days already have the maximum number of drivers on leave. Do you want to apply for
         <strong>3 consecutive working days</strong> starting from your <strong>start date</strong> (weekends excluded)?
       </p>
