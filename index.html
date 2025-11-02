@@ -29,16 +29,14 @@
           <span class="text-sm">Driver</span>
           <select id="driverSelect" class="mt-1 w-full border rounded p-2"></select>
         </label>
-        <div class="grid grid-cols-2 gap-4 col-span-2">
-          <label class="block">
-            <span class="text-sm">Start</span>
-            <input id="dateStart" type="date" class="mt-1 w-full border rounded p-2"/>
-          </label>
-          <label class="block">
-            <span class="text-sm">End</span>
-            <input id="dateEnd" type="date" class="mt-1 w-full border rounded p-2"/>
-          </label>
-        </div>
+        <label class="block col-span-2">
+          <span class="text-sm">Date Range</span>
+          <div class="mt-1 flex items-center gap-2">
+            <input id="dateStart" type="date" class="w-full border rounded p-2"/>
+            <span class="text-slate-400">to</span>
+            <input id="dateEnd" type="date" class="w-full border rounded p-2"/>
+          </div>
+        </label>
       </div>
 
       <div id="capacityHints" class="mt-4 flex flex-wrap gap-2"></div>
@@ -66,7 +64,7 @@
         <h2 class="font-semibold">Admin</h2>
         <button id="toggleAdmin" class="text-blue-600 text-sm">Show/Hide</button>
       </div>
-      <div id="adminBody" class="mt-4 hidden">
+      <div id="adminBody" class="mt-4">
         <div class="grid md:grid-cols-3 gap-4">
           <label class="block">
             <span class="text-sm">Admin API Key</span>
@@ -74,7 +72,7 @@
           </label>
           <label class="block">
             <span class="text-sm">Calendar ID</span>
-            <input id="calendarId" class="mt-1 w-full border rounded p-2" placeholder="primary or calendar id"/>
+            <input id="calendarId" class="mt-1 w-full border rounded p-2" placeholder="primary or calendar id" disabled/>
           </label>
           <label class="block">
             <span class="text-sm">Weekend days (CSV of 0-6)</span>
@@ -127,6 +125,7 @@
   // ====== CONFIG ======
   const ADMIN_KEY = "a63b18e7b18d3291057cbcdb6c055d60f0d%d6fd^$99fac158b447dc88801f677";
   const DEFAULT_API_BASE = '/atc/public';
+  const DEFAULT_CALENDAR_ID = 'a63b18e7b18d3291057cbcdb6c055d60f0d6d6fd399fac158b447dc88801f677@group.calendar.google.com';
   const API_BASE = (() => {
     const fromWindow = typeof window.ATC_API_BASE === 'string' ? window.ATC_API_BASE.trim() : '';
     const fromMeta = (document.querySelector('meta[name=\"atc-api-base\"]')?.content || '').trim();
@@ -310,6 +309,7 @@
       WEEKEND = data.weekend_days || data.weekendDays || [6,0];
       renderDrivers();
       renderDriversTable();
+      qs('#calendarId').value = DEFAULT_CALENDAR_ID;
       if(Array.isArray(WEEKEND)){
         qs('#weekendDays').value = WEEKEND.join(',');
       }
@@ -361,7 +361,7 @@
       return;
     }
     if(res.ok){
-      toast(`Forced 3 working days: ${res.applied_dates.join(', ')}`);
+      toast('Forced 3 working days confirmed','ok');
       qs('#forceModal').classList.add('hidden');
       PENDING_FORCE_START = null;
       await afterApplied(res.applied_dates);
@@ -382,20 +382,49 @@
 
       const grid = qs('#shotsGrid');
       grid.innerHTML = '';
+      let hasSnapshot = false;
       for(const m of [m1, m2]){
         try{
           const data = await apiGet('calendar_screenshot', { month: m });
-          if(data && data.ok && data.svgDataUrl){
+          if(data && data.ok){
             const wrap = document.createElement('div');
-            wrap.innerHTML = `<div class="font-semibold mb-2">${m}</div><img class="border rounded" src="${data.svgDataUrl}" alt="calendar ${m}"/>`;
+            wrap.className = 'space-y-2';
+            wrap.innerHTML = `<div class="font-semibold">${m}</div>`;
+            if(data.svgDataUrl){
+              const img = document.createElement('img');
+              img.className = 'border rounded';
+              img.alt = `calendar ${m}`;
+              img.src = data.svgDataUrl;
+              wrap.appendChild(img);
+              hasSnapshot = true;
+            } else if (data.svg){
+              const container = document.createElement('div');
+              container.className = 'border rounded overflow-hidden';
+              container.innerHTML = data.svg;
+              wrap.appendChild(container);
+              hasSnapshot = true;
+            } else {
+              const note = document.createElement('div');
+              note.className = 'text-sm text-slate-500';
+              note.textContent = 'No snapshot returned.';
+              wrap.appendChild(note);
+            }
             grid.appendChild(wrap);
           }
         }catch(err){
           console.error(`Failed to load calendar for ${m}`, err);
-          toast(`Failed to load calendar for ${m}: ${err.message}`);
+          const wrap = document.createElement('div');
+          wrap.className = 'space-y-2';
+          wrap.innerHTML = `<div class="font-semibold">${m}</div><div class="text-sm text-red-600">Failed to load: ${err.message}</div>`;
+          grid.appendChild(wrap);
         }
       }
-      qs('#screenshots').classList.remove('hidden');
+      const shotsSection = qs('#screenshots');
+      if(hasSnapshot){
+        shotsSection.classList.remove('hidden');
+      } else {
+        shotsSection.classList.add('hidden');
+      }
     }catch(err){
       console.error(err);
       toast('Failed to load calendar snapshots: '+err.message);
@@ -432,7 +461,7 @@
 
   async function saveSettings(){
     let key = qs('#adminKey').value.trim(); if(!key && ADMIN_KEY){ key = ADMIN_KEY; }
-    const body = { admin_key: key, calendar_id: 'a63b18e7b18d3291057cbcdb6c055d60f0d6d6fd399fac158b447dc88801f677@group.calendar.google.com'.trim(), weekend_days: qs('#weekendDays').value.trim() };
+    const body = { admin_key: key, calendar_id: DEFAULT_CALENDAR_ID, weekend_days: qs('#weekendDays').value.trim() };
     try{
       const res = await apiPost('settings_save', body);
       if(res.ok){ toast('Settings saved'); } else { toast('Save failed: '+(res.message||'')); }
@@ -445,7 +474,16 @@
   qs('#dateStart').addEventListener('change', e=>{ SELECTED.start = e.target.value; refreshCapacityHints();});
   qs('#dateEnd').addEventListener('change', e=>{ SELECTED.end = e.target.value; refreshCapacityHints();});
   qs('#btnSubmit').addEventListener('click', submitForm);
-  qs('#toggleAdmin').addEventListener('click', ()=> qs('#adminBody').classList.toggle('hidden'));
+  const toggleAdminBtn = qs('#toggleAdmin');
+  const adminBody = qs('#adminBody');
+  const syncAdminToggleLabel = () => {
+    toggleAdminBtn.textContent = adminBody.classList.contains('hidden') ? 'Show' : 'Hide';
+  };
+  syncAdminToggleLabel();
+  toggleAdminBtn.addEventListener('click', ()=>{
+    adminBody.classList.toggle('hidden');
+    syncAdminToggleLabel();
+  });
   qs('#btnAddDriver').addEventListener('click', addDriverRow);
   qs('#btnSaveDrivers').addEventListener('click', saveDrivers);
   qs('#btnSaveSettings').addEventListener('click', saveSettings);
