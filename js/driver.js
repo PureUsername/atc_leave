@@ -190,17 +190,6 @@ const submitForm = async () => {
         { position: "center" }
       );
       await afterApplied(response.applied_dates);
-    } else if (response.errors) {
-      state.pendingForceStart = start;
-      qs("#forceModal")?.classList.remove("hidden");
-      toast(
-        bilingual(
-          "Hari pilihan penuh. Pertimbangkan untuk paksa 3 hari bekerja.",
-          "Selected days are full. Consider forcing 3 working days."
-        ),
-        "error",
-        { position: "center" }
-      );
     } else {
       const message = response.message || "Failed to submit leave.";
       toast(
