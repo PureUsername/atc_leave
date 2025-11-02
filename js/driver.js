@@ -64,6 +64,10 @@ const refreshCapacityHints = async () => {
   if (!dates.length) {
     state.hasFullDay = false;
     setStatus("");
+    capacityHintContainer.innerHTML = `<p class="text-slate-500">${bilingual(
+      "Sila pilih julat tarikh untuk melihat kapasiti.",
+      "Select a date range to view capacity."
+    )}</p>`;
     return;
   }
   const from = dates[0];
@@ -75,18 +79,38 @@ const refreshCapacityHints = async () => {
     const counts = data.counts || {};
     state.maxPerDay = data.max || state.maxPerDay || 3;
     setStatus("");
+    const table = document.createElement("table");
+    table.className = "min-w-full border border-slate-200 rounded-lg overflow-hidden bg-white";
+    const thead = document.createElement("thead");
+    thead.innerHTML = `
+      <tr class="bg-slate-100 text-left text-slate-700">
+        <th class="px-3 py-2 font-semibold">Tarikh / Date</th>
+        <th class="px-3 py-2 font-semibold">Bil. Pekerja / No. of Employees</th>
+      </tr>
+    `;
+    const tbody = document.createElement("tbody");
     dates.forEach((isoDate) => {
       const count = counts[isoDate] ?? 0;
       if (count >= state.maxPerDay) {
         state.hasFullDay = true;
       }
-      const chip = document.createElement("span");
-      chip.className = `chip ${
-        count >= state.maxPerDay ? "chip-full" : count === state.maxPerDay - 1 ? "chip-mid" : "chip-ok"
-      }`;
-      chip.textContent = `${isoDate}: ${count}/${state.maxPerDay}`;
-      capacityHintContainer.appendChild(chip);
+      const row = document.createElement("tr");
+      row.className = "odd:bg-white even:bg-slate-50";
+      const dateCell = document.createElement("td");
+      dateCell.className = "px-3 py-2 font-medium text-slate-700";
+      dateCell.textContent = isoDate;
+      const countCell = document.createElement("td");
+      const statusClass =
+        count >= state.maxPerDay ? "text-red-600" : count === state.maxPerDay - 1 ? "text-amber-600" : "text-emerald-600";
+      countCell.className = "px-3 py-2";
+      countCell.innerHTML = `<span class="font-semibold ${statusClass}">${count}/${state.maxPerDay}</span>`;
+      row.appendChild(dateCell);
+      row.appendChild(countCell);
+      tbody.appendChild(row);
     });
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    capacityHintContainer.appendChild(table);
   } catch (error) {
     console.error(error);
     setStatus(bilingual("Gagal memuat kapasiti.", "Failed to load capacity."));
