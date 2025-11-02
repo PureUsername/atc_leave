@@ -10,20 +10,6 @@ const state = {
 };
 
 const SNAPSHOT_CHAT_ID = "120363368545737149@g.us";
-const SNAPSHOT_ENDPOINTS = (() => {
-  const endpoints = new Set();
-  if (typeof window === "object" && window?.location?.origin) {
-    endpoints.add(`${window.location.origin}/whatsapp/send`);
-  }
-  const host = typeof window === "object" ? window.location.hostname : "";
-  if (host === "localhost" || host === "127.0.0.1") {
-    endpoints.add("http://localhost:3000/send");
-  }
-  if (!endpoints.size) {
-    endpoints.add("http://localhost:3000/send");
-  }
-  return Array.from(endpoints);
-})();
 const driverSelect = qs("#driverSelect");
 const capacityHintContainer = qs("#capacityHints");
 const statusLabel = qs("#status");
@@ -164,35 +150,15 @@ const sendSnapshotToChat = async ({ base64, caption, month, driver }) => {
     filename,
     caption,
   };
-  const errors = [];
-  for (const endpoint of SNAPSHOT_ENDPOINTS) {
-    let response;
-    try {
-      response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } catch (error) {
-      errors.push(error?.message || `Network error calling ${endpoint}`);
-      continue;
-    }
-    if (response.ok) {
+  try {
+    const response = await apiPost("whatsapp_send", payload);
+    if (response?.ok !== false) {
       return;
     }
-    try {
-      const data = await response.json();
-      if (data?.message) {
-        errors.push(`${endpoint}: ${data.message}`);
-      } else {
-        errors.push(`${endpoint}: HTTP ${response.status}`);
-      }
-    } catch (error) {
-      errors.push(`${endpoint}: HTTP ${response.status}`);
-    }
+    throw new Error(response?.message || "Snapshot bridge returned an error.");
+  } catch (error) {
+    throw new Error(error?.message || "Snapshot bridge request failed.");
   }
-  const finalMessage = errors.length ? errors[errors.length - 1] : "Snapshot API request failed.";
-  throw new Error(finalMessage);
 };
 
 const sendSnapshotsForDates = async (dates, driver) => {
