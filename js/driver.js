@@ -16,6 +16,10 @@ const dateRangeInput = qs("#dateRange");
 let dateRangePicker = null;
 
 const bilingual = (ms, en) => `${ms} / ${en}`;
+const setCapacityMessage = (ms, en) => {
+  if (!capacityHintContainer) return;
+  capacityHintContainer.innerHTML = `<p class="text-slate-500">${bilingual(ms, en)}</p>`;
+};
 
 const setStatus = (message) => {
   if (statusLabel) {
@@ -64,10 +68,10 @@ const refreshCapacityHints = async () => {
   if (!dates.length) {
     state.hasFullDay = false;
     setStatus("");
-    capacityHintContainer.innerHTML = `<p class="text-slate-500">${bilingual(
+    setCapacityMessage(
       "Sila pilih julat tarikh untuk melihat kapasiti.",
       "Select a date range to view capacity."
-    )}</p>`;
+    );
     return;
   }
   const from = dates[0];
@@ -85,7 +89,7 @@ const refreshCapacityHints = async () => {
     thead.innerHTML = `
       <tr class="bg-slate-100 text-left text-slate-700">
         <th class="px-3 py-2 font-semibold">Tarikh / Date</th>
-        <th class="px-3 py-2 font-semibold">Bil. Pekerja / No. of Employees</th>
+        <th class="px-3 py-2 font-semibold">Bil. pemandu bercuti (tarikh ini) / Employees on Leave (This Date)</th>
       </tr>
     `;
     const tbody = document.createElement("tbody");
@@ -114,9 +118,14 @@ const refreshCapacityHints = async () => {
   } catch (error) {
     console.error(error);
     setStatus(bilingual("Gagal memuat kapasiti.", "Failed to load capacity."));
+    setCapacityMessage(
+      "Tidak dapat memaparkan kapasiti. Cuba lagi nanti.",
+      "Unable to display capacity. Please try again later."
+    );
     toast(
       `${bilingual("Gagal memuat kapasiti", "Failed to load capacity")}: ${error.message}`,
-      "error"
+      "error",
+      { position: "center" }
     );
   }
 };
@@ -135,7 +144,8 @@ const loadDrivers = async () => {
     console.error(error);
     toast(
       `${bilingual("Gagal memuat pemandu", "Failed to load drivers")}: ${error.message}`,
-      "error"
+      "error",
+      { position: "center" }
     );
   }
 };
@@ -143,12 +153,12 @@ const loadDrivers = async () => {
 const submitForm = async () => {
   const driverId = driverSelect?.value;
   if (!driverId) {
-    toast(bilingual("Sila pilih pemandu", "Select a driver"), "error");
+    toast(bilingual("Sila pilih pemandu", "Select a driver"), "error", { position: "center" });
     return;
   }
   const { start, end } = state.selected;
   if (!start || !end) {
-    toast(bilingual("Sila pilih tarikh mula dan tamat", "Choose start & end"), "error");
+    toast(bilingual("Sila pilih tarikh mula dan tamat", "Choose start & end"), "error", { position: "center" });
     return;
   }
 
@@ -163,7 +173,8 @@ const submitForm = async () => {
     if (response.ok) {
       toast(
         `Permohonan dihantar untuk ${response.applied_dates.length} hari / Applied for ${response.applied_dates.length} day(s)`,
-        "ok"
+        "ok",
+        { position: "center" }
       );
       await afterApplied(response.applied_dates);
     } else if (response.errors) {
@@ -174,20 +185,23 @@ const submitForm = async () => {
           "Hari pilihan penuh. Pertimbangkan untuk paksa 3 hari bekerja.",
           "Selected days are full. Consider forcing 3 working days."
         ),
-        "error"
+        "error",
+        { position: "center" }
       );
     } else {
       const message = response.message || "Failed to submit leave.";
       toast(
         `${bilingual("Gagal menghantar permohonan", "Failed to submit leave")}: ${message}`,
-        "error"
+        "error",
+        { position: "center" }
       );
       setStatus(message);
     }
   } catch (error) {
     toast(
       `${bilingual("Penghantaran gagal", "Submit failed")}: ${error.message}`,
-      "error"
+      "error",
+      { position: "center" }
     );
     setStatus(bilingual("Penghantaran gagal.", "Submit failed."));
     return;
@@ -200,7 +214,8 @@ const confirmForce = async () => {
   if (!state.pendingForceStart) {
     toast(
       bilingual("Tiada permohonan paksa yang belum selesai.", "No force request pending."),
-      "error"
+      "error",
+      { position: "center" }
     );
     return;
   }
@@ -213,7 +228,8 @@ const confirmForce = async () => {
     if (response.ok) {
       toast(
         bilingual("Permohonan paksa 3 hari bekerja disahkan.", "Forced 3 working days confirmed."),
-        "ok"
+        "ok",
+        { position: "center" }
       );
       qs("#forceModal")?.classList.add("hidden");
       state.pendingForceStart = null;
@@ -222,13 +238,15 @@ const confirmForce = async () => {
     } else {
       toast(
         `${bilingual("Permohonan paksa gagal", "Force request failed")}: ${response.message || ""}`,
-        "error"
+        "error",
+        { position: "center" }
       );
     }
   } catch (error) {
     toast(
       `${bilingual("Permohonan paksa gagal", "Force request failed")}: ${error.message}`,
-      "error"
+      "error",
+      { position: "center" }
     );
   }
 };
@@ -241,16 +259,38 @@ const afterApplied = async (dates) => {
 };
 
 const handleDateRangeChange = (selectedDates) => {
-  const [startDate, endDate] = selectedDates;
-  if (!selectedDates.length) {
+  if (!selectedDates || !selectedDates.length) {
     state.selected.start = null;
     state.selected.end = null;
-    refreshCapacityHints();
+    setCapacityMessage(
+      "Sila pilih julat tarikh untuk melihat kapasiti.",
+      "Select a date range to view capacity."
+    );
     return;
   }
+
+  const startDate = selectedDates[0] || null;
+  const endDate = selectedDates.length >= 2 ? selectedDates[selectedDates.length - 1] : null;
+
   state.selected.start = startDate ? fmt(startDate) : null;
-  state.selected.end = endDate ? fmt(endDate) : state.selected.start;
+
+  if (!endDate) {
+    state.selected.end = null;
+    setCapacityMessage(
+      "Sila pilih tarikh tamat untuk melihat kapasiti.",
+      "Select an end date to view capacity."
+    );
+    return;
+  }
+
+  state.selected.end = fmt(endDate);
   refreshCapacityHints();
+};
+
+const handleDateRangeClose = (selectedDates) => {
+  if (selectedDates.length === 1) {
+    handleDateRangeChange([selectedDates[0], selectedDates[0]]);
+  }
 };
 
 const initializeDatePicker = () => {
@@ -269,7 +309,7 @@ const initializeDatePicker = () => {
     locale: localeConfig,
     static: true,
     onChange: handleDateRangeChange,
-    onClose: handleDateRangeChange,
+    onClose: handleDateRangeClose,
   });
 };
 
