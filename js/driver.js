@@ -83,31 +83,61 @@ const sendLeaveNotification = async (notification = {}) => {
   if (!notification.message) {
     return;
   }
-  const buttonsSource = Array.isArray(notification.buttons) && notification.buttons.length
-    ? notification.buttons
-    : [
-        { id: `leave:approve:${notification.request_id || ""}`, body: bilingual("Lulus", "Approve") },
-        { id: `leave:reject:${notification.request_id || ""}`, body: bilingual("Tolak", "Reject") },
-      ];
-  const buttons = buttonsSource
-    .map((btn, index) => {
-      const body = (btn.body || btn.label || "").trim();
+  const buttonActionSource =
+    notification.button_actions && typeof notification.button_actions === "object"
+      ? notification.button_actions
+      : {};
+  const buttons = Object.entries(buttonActionSource)
+    .map(([label, action]) => {
+      const body = String(label || "").trim();
+      const mappedAction = typeof action === "string" ? action.trim() : "";
       if (!body) {
         return null;
       }
-      const id = (btn.id || btn.customId || `${notification.request_id || "leave"}:${index}`).trim();
-      return { body, id };
+      return { body, action: mappedAction };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(({ body }) => ({ body }));
+
+  if (!buttons.length && Array.isArray(notification.buttons)) {
+    notification.buttons.forEach((btn) => {
+      const body = (btn?.body || btn?.label || "").trim();
+      if (body) {
+        buttons.push({ body });
+      }
+    });
+  }
+
   if (!buttons.length) {
     return;
   }
+
   const mentionNumbers = Array.isArray(notification.mention_numbers)
     ? notification.mention_numbers.filter(Boolean)
     : [];
   const mentionJids = mentionNumbers
     .map(toWhatsappJid)
     .filter(Boolean);
+
+  const metadataSource =
+    notification.metadata && typeof notification.metadata === "object"
+      ? notification.metadata
+      : {};
+  const metadata = {};
+  Object.entries(metadataSource).forEach(([key, value]) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+    metadata[key] = String(value);
+  });
+
+  if (!metadata.button_actions_json && Object.keys(buttonActionSource).length) {
+    metadata.button_actions_json = JSON.stringify(buttonActionSource);
+  }
+  if (!metadata.request_id && notification.request_id) {
+    metadata.request_id = String(notification.request_id);
+  }
+
   const payload = {
     chatId: SNAPSHOT_CHAT_ID,
     type: "buttons",
@@ -117,12 +147,7 @@ const sendLeaveNotification = async (notification = {}) => {
     footer:
       notification.footer ||
       bilingual("Tekan butang untuk maklumkan keputusan.", "Tap a button to share your decision."),
-    metadata: {
-      requestId: notification.request_id || "",
-      dateRange: notification.date_range || null,
-      applicant: notification.applicant || null,
-      takenSummary: notification.taken_summary || null,
-    },
+    metadata,
   };
   if (mentionNumbers.length) {
     payload.mentionNumbers = mentionNumbers;
