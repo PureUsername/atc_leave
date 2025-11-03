@@ -198,9 +198,7 @@ const buildApprovalChatBody = (notification = {}) => {
     ? "Permohonan cuti baharu pada (kerana mencapai had maksimum 3 orang sehari)"
     : "Permohonan cuti baharu pada";
 
-  const bodyLine = `${bilingual(prefixMs, "")}${
-    dateRangeLabel ? ` ${dateRangeLabel}` : ""
-  }:`.trim();
+  const bodyLine = `${prefixMs}${dateRangeLabel ? ` ${dateRangeLabel}` : ""}:`.trim();
 
   const applicantDescriptor = extractApplicantDescriptor(notification);
 
