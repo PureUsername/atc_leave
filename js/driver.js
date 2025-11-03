@@ -16,6 +16,7 @@ const driverSelect = qs("#driverSelect");
 const capacityHintContainer = qs("#capacityHints");
 const statusLabel = qs("#status");
 const dateRangeInput = qs("#dateRange");
+const forceModal = qs("#forceModal");
 let dateRangePicker = null;
 
 const bilingual = (ms, en) => `${ms} / ${en}`;
@@ -34,6 +35,14 @@ const resetPendingForceState = () => {
   state.pendingForceStart = null;
   state.pendingForceDriverId = null;
   state.pendingForceNotification = null;
+};
+
+const showForceModal = () => {
+  forceModal?.classList.remove("hidden");
+};
+
+const hideForceModal = () => {
+  forceModal?.classList.add("hidden");
 };
 
 const getDriverById = (driverId) => {
@@ -485,18 +494,28 @@ const submitForm = async () => {
       resetPendingForceState();
     } else {
       const errors = Array.isArray(response.errors) ? response.errors : [];
-      const hasFullError = errors.some((err) => err?.reason === "full");
-      if (hasFullError && state.selected.start) {
-        state.pendingForceStart = state.selected.start;
+      const fullError = errors.find((err) => err?.reason === "full");
+      if (fullError) {
+        state.pendingForceStart = state.selected.start || fullError.date || null;
         state.pendingForceDriverId = driverId;
         state.pendingForceNotification = response.notification || null;
-        qs("#forceModal")?.classList.remove("hidden");
-        const promptMessage = bilingual(
-          "Tarikh pilihan penuh. Sahkan permohonan paksa dalam tetingkap pengesahan.",
-          "Selected dates are full. Confirm the forced request in the dialog."
+        if (state.pendingForceStart) {
+          showForceModal();
+          const promptMessage = bilingual(
+            "Tarikh pilihan penuh. Sahkan permohonan paksa dalam tetingkap pengesahan.",
+            "Selected dates are full. Confirm the forced request in the dialog."
+          );
+          toast(promptMessage, "error", { position: "top-right" });
+          setStatus(promptMessage);
+          return;
+        }
+        resetPendingForceState();
+        const missingStartMessage = bilingual(
+          "Tidak dapat mengenal pasti tarikh mula untuk permohonan paksa. Sila pilih semula julat tarikh.",
+          "Unable to determine the start date for the forced request. Please reselect your date range."
         );
-        toast(promptMessage, "error", { position: "top-right" });
-        setStatus(promptMessage);
+        toast(missingStartMessage, "error", { position: "center" });
+        setStatus(missingStartMessage);
         return;
       }
       resetPendingForceState();
@@ -540,11 +559,6 @@ const confirmForce = async () => {
     return;
   }
   const driver = getDriverById(driverId);
-  
-  // Hide modal immediately
-  qs("#forceModal")?.classList.add("hidden");
-  setStatus(bilingual("Sedang dihantar...", "Submitting..."));
-  
   try {
     const response = await apiPost("apply_force3", {
       driver_id: driverId,
@@ -556,6 +570,7 @@ const confirmForce = async () => {
         "ok",
         { position: "center" }
       );
+      hideForceModal();
       const notification = response.notification || state.pendingForceNotification;
       await afterApplied(response.applied_dates, { driver, driverId, notification });
       resetPendingForceState();
@@ -566,7 +581,6 @@ const confirmForce = async () => {
         "error",
         { position: "center" }
       );
-      setStatus(response.message || bilingual("Permohonan paksa gagal.", "Force request failed."));
     }
   } catch (error) {
     toast(
@@ -574,7 +588,6 @@ const confirmForce = async () => {
       "error",
       { position: "center" }
     );
-    setStatus(bilingual("Permohonan paksa gagal.", "Force request failed."));
   }
 };
 
@@ -656,7 +669,7 @@ const initializeDatePicker = () => {
 // Event bindings
 qs("#btnSubmit")?.addEventListener("click", submitForm);
 qs("#btnCancelForce")?.addEventListener("click", () => {
-  qs("#forceModal")?.classList.add("hidden");
+  hideForceModal();
   resetPendingForceState();
 });
 qs("#btnConfirmForce")?.addEventListener("click", confirmForce);
