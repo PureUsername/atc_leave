@@ -96,10 +96,31 @@ const toWhatsappJid = (value) => {
   return `${normalized}@c.us`;
 };
 
-const sendLeaveNotification = async (notification = {}) => {
+const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], driver = null) => {
   if (!notification.message) {
     return;
   }
+  
+  // Get calendar snapshot base64 if dates are provided
+  let base64Image = null;
+  let imageFilename = null;
+  
+  if (dates && dates.length > 0 && driver) {
+    const months = uniqueMonthsFromDates(dates);
+    if (months.length > 0) {
+      try {
+        // Get the first month's snapshot (usually most relevant)
+        const month = months[0];
+        base64Image = await fetchMonthSnapshotAsBase64(month);
+        const driverPart = sanitizeFilenamePart(driver?.driver_id || driver?.display_name || "driver");
+        imageFilename = `calendar-${month}-${driverPart}.jpg`;
+      } catch (error) {
+        console.error("Failed to get calendar snapshot for notification", error);
+        // Continue without image if it fails
+      }
+    }
+  }
+  
   const buttonActionSource =
     notification.button_actions && typeof notification.button_actions === "object"
       ? notification.button_actions
@@ -169,12 +190,23 @@ const sendLeaveNotification = async (notification = {}) => {
       bilingual("Tekan butang untuk maklumkan keputusan.", "Tap a button to share your decision."),
     metadata,
   };
+  
+  // Add image if available
+  if (base64Image) {
+    payload.base64 = base64Image;
+    payload.mimeType = "image/jpeg";
+    if (imageFilename) {
+      payload.filename = imageFilename;
+    }
+  }
+  
   if (mentionNumbers.length) {
     payload.mentionNumbers = mentionNumbers;
   }
   if (mentionJids.length) {
     payload.mentions = mentionJids;
   }
+  
   try {
     await apiPost("whatsapp_send", payload);
   } catch (error) {
@@ -599,16 +631,12 @@ const afterApplied = async (dates, { driver, driverId, notification } = {}) => {
     `Penghantaran terakhir: ${approvedCount} hari diluluskan. / Last submission: ${approvedCount} day(s) approved.`
   );
   const resolvedDriver = driver || getDriverById(driverId);
-  if (appliedDates.length && resolvedDriver) {
-    try {
-      await sendSnapshotsForDates(appliedDates, resolvedDriver);
-    } catch (error) {
-      console.error("Snapshot sending failed", error);
-    }
-  }
+  
+  // Send notification with snapshot image included
   if (notification) {
-    await sendLeaveNotification(notification);
+    await sendLeaveNotificationWithSnapshot(notification, appliedDates, resolvedDriver);
   }
+  
   await loadDrivers();
 };
 
