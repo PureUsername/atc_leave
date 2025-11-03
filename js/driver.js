@@ -197,11 +197,8 @@ const buildApprovalChatBody = (notification = {}) => {
   const prefixMs = capacityIssue
     ? "Permohonan cuti baharu pada (kerana mencapai had maksimum 3 orang sehari)"
     : "Permohonan cuti baharu pada";
-  const prefixEn = capacityIssue
-    ? "New leave request on (because of hit max 3 person per day)"
-    : "New leave request on";
 
-  const bodyLine = `${bilingual(prefixMs, prefixEn)}${
+  const bodyLine = `${bilingual(prefixMs, "")}${
     dateRangeLabel ? ` ${dateRangeLabel}` : ""
   }:`.trim();
 
