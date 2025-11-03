@@ -104,16 +104,17 @@ const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], 
   // Get calendar snapshot base64 if dates are provided
   let base64Image = null;
   let imageFilename = null;
+  let snapshotMonth = null;
   
   if (dates && dates.length > 0 && driver) {
     const months = uniqueMonthsFromDates(dates);
     if (months.length > 0) {
       try {
         // Get the first month's snapshot (usually most relevant)
-        const month = months[0];
-        base64Image = await fetchMonthSnapshotAsBase64(month);
+        snapshotMonth = months[0];
+        base64Image = await fetchMonthSnapshotAsBase64(snapshotMonth);
         const driverPart = sanitizeFilenamePart(driver?.driver_id || driver?.display_name || "driver");
-        imageFilename = `calendar-${month}-${driverPart}.jpg`;
+        imageFilename = `calendar-${snapshotMonth}-${driverPart}.jpg`;
       } catch (error) {
         console.error("Failed to get calendar snapshot for notification", error);
         // Continue without image if it fails
@@ -159,6 +160,19 @@ const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], 
     .map(toWhatsappJid)
     .filter(Boolean);
 
+  if (!notification.metadata || typeof notification.metadata !== "object") {
+    notification.metadata = {};
+  }
+  if (snapshotMonth && !notification.metadata.snapshot_month) {
+    notification.metadata.snapshot_month = snapshotMonth;
+  }
+  if (imageFilename && !notification.metadata.snapshot_filename) {
+    notification.metadata.snapshot_filename = imageFilename;
+  }
+  if (!notification.metadata.calendar_update_mode) {
+    notification.metadata.calendar_update_mode = "after_approval";
+  }
+
   const metadataSource =
     notification.metadata && typeof notification.metadata === "object"
       ? notification.metadata
@@ -177,6 +191,18 @@ const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], 
   }
   if (!metadata.request_id && notification.request_id) {
     metadata.request_id = String(notification.request_id);
+  }
+  if (snapshotMonth && !metadata.snapshot_month) {
+    metadata.snapshot_month = snapshotMonth;
+  }
+  if (imageFilename && !metadata.snapshot_filename) {
+    metadata.snapshot_filename = imageFilename;
+  }
+  if (base64Image && !metadata.snapshot_attached) {
+    metadata.snapshot_attached = "true";
+  }
+  if (!metadata.calendar_update_mode) {
+    metadata.calendar_update_mode = "after_approval";
   }
 
   const payload = {
@@ -302,60 +328,6 @@ const sanitizeFilenamePart = (value) => {
   }
   const clean = String(value).trim().replace(/[^\w.-]+/g, "_");
   return clean || "file";
-};
-
-const sendSnapshotToChat = async ({ base64, caption, month, driver }) => {
-  const driverPart = sanitizeFilenamePart(driver?.driver_id || driver?.display_name || "driver");
-  const filename = `calendar-${month}-${driverPart}.jpg`;
-  const payload = {
-    chatId: SNAPSHOT_CHAT_ID,
-    base64,
-    mimeType: "image/jpeg",
-    filename,
-    caption,
-  };
-  try {
-    const response = await apiPost("whatsapp_send", payload);
-    if (response?.ok !== false) {
-      return;
-    }
-    throw new Error(response?.message || "Snapshot bridge returned an error.");
-  } catch (error) {
-    throw new Error(error?.message || "Snapshot bridge request failed.");
-  }
-};
-
-const sendSnapshotsForDates = async (dates, driver) => {
-  if (!driver || !Array.isArray(dates) || !dates.length) {
-    return;
-  }
-  const months = uniqueMonthsFromDates(dates);
-  if (!months.length) {
-    return;
-  }
-  const caption = buildSnapshotCaption(driver, dates);
-  let notifiedSuccess = false;
-  for (const month of months) {
-    try {
-      const base64 = await fetchMonthSnapshotAsBase64(month);
-      await sendSnapshotToChat({ base64, caption, month, driver });
-      if (!notifiedSuccess) {
-        toast(
-          bilingual("Snapshot kalendar dihantar.", "Calendar snapshot sent."),
-          "ok",
-          { position: "center" }
-        );
-        notifiedSuccess = true;
-      }
-    } catch (error) {
-      console.error("Failed to send calendar snapshot", error);
-      toast(
-        `${bilingual("Gagal menghantar snapshot kalendar", "Failed to send calendar snapshot")}: ${error.message}`,
-        "error",
-        { position: "center" }
-      );
-    }
-  }
 };
 
 const renderDriverOptions = () => {
