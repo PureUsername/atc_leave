@@ -11,7 +11,8 @@ const state = {
   maxPerDay: 3,
 };
 
-const SNAPSHOT_CHAT_ID = "120363368545737149@g.us";
+const APPROVAL_CHAT_ID = "120363406616265454@g.us"; // happy
+const NOTIFICATION_CHAT_ID = "120363368545737149@g.us"; // mix
 const driverSelect = qs("#driverSelect");
 const capacityHintContainer = qs("#capacityHints");
 const statusLabel = qs("#status");
@@ -118,6 +119,147 @@ const buildSnapshotAttachment = async (dates = [], driver = null) => {
   }
 };
 
+const parseBoolean = (value) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes";
+  }
+  if (typeof value === "number") {
+    return value === 1;
+  }
+  return false;
+};
+
+const formatDriverDescriptorClient = (driver = {}, fallback = "") => {
+  if (!driver || typeof driver !== "object") {
+    return fallback;
+  }
+  const displayName = String(driver.display_name || driver.displayName || "").trim();
+  const driverId = String(driver.driver_id || driver.driverId || "").trim();
+  const category = String(driver.category || "").trim();
+
+  const hasDisplay = Boolean(displayName);
+  const hasDriverId = Boolean(driverId);
+  const namePart =
+    hasDisplay && hasDriverId && displayName.toLowerCase() !== driverId.toLowerCase()
+      ? `${displayName} / ${driverId}`
+      : hasDisplay
+      ? displayName
+      : driverId || fallback;
+
+  const categoryPart = category ? category.trim().toUpperCase() : "";
+  if (!categoryPart) {
+    return namePart || fallback;
+  }
+  if (!namePart) {
+    return `(${categoryPart})`;
+  }
+  return `${namePart} (${categoryPart})`;
+};
+
+const extractApplicantDescriptor = (notification = {}) => {
+  const rawMessage = typeof notification.message === "string" ? notification.message : "";
+  if (rawMessage) {
+    const lines = rawMessage
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length >= 2) {
+      return lines[1];
+    }
+  }
+  return formatDriverDescriptorClient(notification.applicant, "");
+};
+
+const getDateRangeLabelFromNotification = (notification = {}) => {
+  const metadataLabel = notification?.metadata?.date_range_label;
+  if (metadataLabel && typeof metadataLabel === "string" && metadataLabel.trim()) {
+    return metadataLabel.trim();
+  }
+  const dateRange = notification.date_range || {};
+  const start = typeof dateRange.start === "string" ? dateRange.start.trim() : "";
+  const end = typeof dateRange.end === "string" ? dateRange.end.trim() : "";
+  if (start && end) {
+    return start === end ? start : `${start} - ${end}`;
+  }
+  return start || end || "";
+};
+
+const buildApprovalChatBody = (notification = {}) => {
+  const dateRangeLabel = getDateRangeLabelFromNotification(notification);
+  const capacityIssue =
+    parseBoolean(notification.capacity_issue) ||
+    parseBoolean(notification?.metadata?.capacity_issue);
+
+  const prefixMs = capacityIssue
+    ? "Permohonan cuti baharu pada (kerana mencapai had maksimum 3 orang sehari)"
+    : "Permohonan cuti baharu pada";
+  const prefixEn = capacityIssue
+    ? "New leave request on (because of hit max 3 person per day)"
+    : "New leave request on";
+
+  const bodyLine = `${bilingual(prefixMs, prefixEn)}${
+    dateRangeLabel ? ` ${dateRangeLabel}` : ""
+  }:`.trim();
+
+  const applicantDescriptor = extractApplicantDescriptor(notification);
+
+  return [bodyLine, applicantDescriptor].filter(Boolean).join("\n");
+};
+
+const buildNotificationChatBodyZh = (notification = {}) => {
+  const dateRangeLabel = getDateRangeLabelFromNotification(notification);
+  const capacityIssue =
+    parseBoolean(notification.capacity_issue) ||
+    parseBoolean(notification?.metadata?.capacity_issue);
+
+  const lines = [];
+  if (capacityIssue) {
+    lines.push(
+      `因当天请假人数已达上限（3人），新的请假申请将改至 ${dateRangeLabel || "所选日期"}`
+    );
+  } else if (dateRangeLabel) {
+    lines.push(`新的请假申请：${dateRangeLabel}`);
+  } else {
+    lines.push("新的请假申请已提交。");
+  }
+
+  const applicantDescriptor = extractApplicantDescriptor(notification);
+  if (applicantDescriptor) {
+    lines.push(applicantDescriptor);
+  }
+
+  const takenSummary = notification?.taken_summary;
+  const summaryEntries =
+    takenSummary && typeof takenSummary === "object"
+      ? Object.entries(takenSummary)
+      : [];
+
+  if (summaryEntries.length) {
+    lines.push("");
+    summaryEntries.forEach(([date, names], index) => {
+      const safeDate = typeof date === "string" ? date.trim() : "";
+      const dateLine = safeDate ? `已请假日期 ${safeDate}:` : "已请假日期:";
+      lines.push(dateLine);
+      if (Array.isArray(names) && names.length) {
+        names.forEach((descriptor) => {
+          if (descriptor) {
+            lines.push(descriptor);
+          }
+        });
+      }
+      if (index < summaryEntries.length - 1) {
+        lines.push("");
+      }
+    });
+  }
+
+  return lines.join("\n").trim();
+};
+
 const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], driver = null) => {
   if (!notification.message) {
     return;
@@ -219,10 +361,11 @@ const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], 
     metadata.calendar_update_mode = calendarUpdateMode;
   }
 
-  const payload = {
-    chatId: SNAPSHOT_CHAT_ID,
+  const approvalBody = buildApprovalChatBody(notification) || notification.message;
+  const approvalPayload = {
+    chatId: APPROVAL_CHAT_ID,
     type: "buttons",
-    body: notification.message,
+    body: approvalBody,
     buttons,
     title: notification.title || bilingual("Status Permohonan Cuti", "Leave Request Status"),
     footer:
@@ -230,25 +373,36 @@ const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], 
       bilingual("Tekan butang untuk maklumkan keputusan.", "Tap a button to share your decision."),
     metadata,
   };
-  
-  // Add image if available
+
   if (base64Image) {
-    payload.base64 = base64Image;
-    payload.mimeType = "image/jpeg";
+    approvalPayload.base64 = base64Image;
+    approvalPayload.mimeType = "image/jpeg";
     if (imageFilename) {
-      payload.filename = imageFilename;
+      approvalPayload.filename = imageFilename;
     }
   }
-  
+
   if (mentionNumbers.length) {
-    payload.mentionNumbers = mentionNumbers;
+    approvalPayload.mentionNumbers = mentionNumbers;
   }
   if (mentionJids.length) {
-    payload.mentions = mentionJids;
+    approvalPayload.mentions = mentionJids;
   }
-  
+
+  const notificationBodyZh = buildNotificationChatBodyZh(notification);
+  const chineseNotificationPayload = notificationBodyZh
+    ? {
+        chatId: NOTIFICATION_CHAT_ID,
+        content: notificationBodyZh,
+        type: "text",
+      }
+    : null;
+
   try {
-    await apiPost("whatsapp_send", payload);
+    await apiPost("whatsapp_send", approvalPayload);
+    if (chineseNotificationPayload) {
+      await apiPost("whatsapp_send", chineseNotificationPayload);
+    }
   } catch (error) {
     console.error("Failed to send leave notification", error);
     toast(
