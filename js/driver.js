@@ -470,7 +470,28 @@ const submitForm = async () => {
         { position: "center" }
       );
       await afterApplied(response.applied_dates, { driver, driverId, notification: response.notification });
-    } 
+    } else {
+      const errors = Array.isArray(response.errors) ? response.errors : [];
+      const hasFullError = errors.some((err) => err?.reason === "full");
+      if (hasFullError && state.selected.start) {
+        state.pendingForceStart = state.selected.start;
+        qs("#forceModal")?.classList.remove("hidden");
+        const promptMessage = bilingual(
+          "Tarikh pilihan penuh. Mohon 3 hari bekerja berturut-turut bermula tarikh mula?",
+          "Selected dates are full. Apply 3 consecutive working days from your start date?"
+        );
+        toast(promptMessage, "error", { position: "center" });
+        setStatus(promptMessage);
+        return;
+      }
+      const message = response.message || "Failed to submit leave.";
+      toast(
+        `${bilingual("Gagal menghantar permohonan", "Failed to submit leave")}: ${message}`,
+        "error",
+        { position: "center" }
+      );
+      setStatus(message);
+    }
   } catch (error) {
     toast(
       `${bilingual("Penghantaran gagal", "Submit failed")}: ${error.message}`,
