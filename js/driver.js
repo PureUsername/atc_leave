@@ -240,10 +240,10 @@ const buildNotificationChatBodyZh = (notification = {}) => {
 
   if (summaryEntries.length) {
     lines.push("");
+    lines.push("司机已请假日期:");
     summaryEntries.forEach(([date, names], index) => {
       const safeDate = typeof date === "string" ? date.trim() : "";
-      const dateLine = safeDate ? `已请假日期 ${safeDate}:` : "已请假日期:";
-      lines.push(dateLine);
+      lines.push(safeDate);
       if (Array.isArray(names) && names.length) {
         names.forEach((descriptor) => {
           if (descriptor) {
