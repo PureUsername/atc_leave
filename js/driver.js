@@ -11,8 +11,8 @@ const state = {
   maxPerDay: 3,
 };
 
-const APPROVAL_CHAT_ID = "120363406616265454@g.us"; // happy
-const NOTIFICATION_CHAT_ID = "120363368545737149@g.us"; // mix
+const LOWBED_CHAT_ID = "120363406616265454@g.us"; // happy
+const ADMIN_CHAT_ID = "120363368545737149@g.us"; // mix
 const driverSelect = qs("#driverSelect");
 const capacityHintContainer = qs("#capacityHints");
 const statusLabel = qs("#status");
@@ -22,10 +22,9 @@ const calendarUpdateMode =
   document.querySelector("[data-calendar-update-mode]")?.dataset?.calendarUpdateMode || "after_approval";
 let dateRangePicker = null;
 
-const bilingual = (ms, en) => `${ms} / ${en}`;
-const setCapacityMessage = (ms, en) => {
+const setCapacityMessage = (message) => {
   if (!capacityHintContainer) return;
-  capacityHintContainer.innerHTML = `<p class="text-slate-500">${bilingual(ms, en)}</p>`;
+  capacityHintContainer.innerHTML = `<p class="text-slate-500">${message}</p>`;
 };
 
 const setStatus = (message) => {
@@ -330,7 +329,7 @@ const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], 
 
   const approvalBody = buildApprovalChatBody(notification) || notification.message;
   const approvalPayload = {
-    chatId: APPROVAL_CHAT_ID,
+    chatId: LOWBED_CHAT_ID,
     content: approvalBody,
     type: "text",
   };
@@ -357,7 +356,7 @@ const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], 
   });
 
   const chineseApprovalPayload = {
-    chatId: NOTIFICATION_CHAT_ID,
+    chatId: ADMIN_CHAT_ID,
     type: "buttons",
     body: notificationBodyZh,
     buttons: zhButtons,
@@ -378,7 +377,7 @@ const sendLeaveNotificationWithSnapshot = async (notification = {}, dates = [], 
   } catch (error) {
     console.error("Failed to send leave notification", error);
     toast(
-      `${bilingual("Gagal menghantar mesej kelulusan", "Failed to send approval message")}: ${error.message}`,
+      `Gagal menghantar mesej kelulusan: ${error.message}`,
       "error",
       { position: "center" }
     );
@@ -476,7 +475,7 @@ const renderDriverOptions = () => {
   driverSelect.innerHTML = "";
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = bilingual("Pilih nama", "Select your name");
+  placeholder.textContent = "Pilih nama";
   placeholder.disabled = true;
   driverSelect.appendChild(placeholder);
   let restoredSelection = false;
@@ -524,16 +523,13 @@ const refreshCapacityHints = async () => {
   if (!dates.length) {
     state.hasFullDay = false;
     setStatus("");
-    setCapacityMessage(
-      "Sila pilih julat tarikh untuk melihat kapasiti.",
-      "Select a date range to view capacity."
-    );
+    setCapacityMessage("Sila pilih julat tarikh untuk melihat kapasiti.");
     return;
   }
   const from = dates[0];
   const to = dates[dates.length - 1];
   state.hasFullDay = false;
-  setStatus(bilingual("Memuat kapasiti...", "Loading capacity..."));
+  setStatus("Memuat kapasiti...");
   try {
     const data = await apiGet("capacity", { from, to });
     const counts = data.counts || {};
@@ -544,8 +540,8 @@ const refreshCapacityHints = async () => {
     const thead = document.createElement("thead");
     thead.innerHTML = `
       <tr class="bg-slate-100 text-left text-slate-700">
-        <th class="px-3 py-2 font-semibold">Tarikh / Date</th>
-        <th class="px-3 py-2 font-semibold">Bil. pemandu bercuti (tarikh ini) / Employees on Leave (This Date)</th>
+        <th class="px-3 py-2 font-semibold">Tarikh</th>
+        <th class="px-3 py-2 font-semibold">Bil. pemandu bercuti (tarikh ini)</th>
       </tr>
     `;
     const tbody = document.createElement("tbody");
@@ -573,13 +569,10 @@ const refreshCapacityHints = async () => {
     capacityHintContainer.appendChild(table);
   } catch (error) {
     console.error(error);
-    setStatus(bilingual("Gagal memuat kapasiti.", "Failed to load capacity."));
-    setCapacityMessage(
-      "Tidak dapat memaparkan kapasiti. Cuba lagi nanti.",
-      "Unable to display capacity. Please try again later."
-    );
+    setStatus("Gagal memuat kapasiti.");
+    setCapacityMessage("Tidak dapat memaparkan kapasiti. Cuba lagi nanti.");
     toast(
-      `${bilingual("Gagal memuat kapasiti", "Failed to load capacity")}: ${error.message}`,
+      `Gagal memuat kapasiti: ${error.message}`,
       "error",
       { position: "center" }
     );
@@ -599,7 +592,7 @@ const loadDrivers = async () => {
   } catch (error) {
     console.error(error);
     toast(
-      `${bilingual("Gagal memuat pemandu", "Failed to load drivers")}: ${error.message}`,
+      `Gagal memuat pemandu: ${error.message}`,
       "error",
       { position: "center" }
     );
@@ -610,16 +603,16 @@ const submitForm = async () => {
   resetPendingForceState();
   const driverId = driverSelect?.value;
   if (!driverId) {
-    toast(bilingual("Sila pilih pemandu", "Select a driver"), "error", { position: "center" });
+    toast("Sila pilih pemandu", "error", { position: "center" });
     return;
   }
   const { start, end } = state.selected;
   if (!start || !end) {
-    toast(bilingual("Sila pilih tarikh mula dan tamat", "Choose start & end"), "error", { position: "center" });
+    toast("Sila pilih tarikh mula dan tamat", "error", { position: "center" });
     return;
   }
 
-  setStatus(bilingual("Sedang dihantar...", "Submitting..."));
+  setStatus("Sedang dihantar...");
 
   try {
     const response = await apiPost("apply", {
@@ -630,7 +623,7 @@ const submitForm = async () => {
     if (response.ok) {
       const driver = getDriverById(driverId);
       toast(
-        `Permohonan dihantar untuk ${response.applied_dates.length} hari / Applied for ${response.applied_dates.length} day(s)`,
+        `Permohonan dihantar untuk ${response.applied_dates.length} hari`,
         "ok",
         { position: "center" }
       );
@@ -646,19 +639,15 @@ const submitForm = async () => {
         state.pendingForceNotification = response.notification || null;
         if (state.pendingForceStart) {
           showForceModal();
-          const promptMessage = bilingual(
-            "Tarikh pilihan penuh. Sahkan permohonan paksa dalam tetingkap pengesahan.",
-            "Selected dates are full. Confirm the forced request in the dialog."
-          );
+          const promptMessage =
+            "Tarikh pilihan penuh. Sahkan permohonan paksa dalam tetingkap pengesahan.";
           toast(promptMessage, "error", { position: "top-right" });
           setStatus(promptMessage);
           return;
         }
         resetPendingForceState();
-        const missingStartMessage = bilingual(
-          "Tidak dapat mengenal pasti tarikh mula untuk permohonan paksa. Sila pilih semula julat tarikh.",
-          "Unable to determine the start date for the forced request. Please reselect your date range."
-        );
+        const missingStartMessage =
+          "Tidak dapat mengenal pasti tarikh mula untuk permohonan paksa. Sila pilih semula julat tarikh.";
         toast(missingStartMessage, "error", { position: "center" });
         setStatus(missingStartMessage);
         return;
@@ -666,7 +655,7 @@ const submitForm = async () => {
       resetPendingForceState();
       const message = response.message || "Failed to submit leave.";
       toast(
-        `${bilingual("Gagal menghantar permohonan", "Failed to submit leave")}: ${message}`,
+        `Gagal menghantar permohonan: ${message}`,
         "error",
         { position: "center" }
       );
@@ -674,11 +663,11 @@ const submitForm = async () => {
     }
   } catch (error) {
     toast(
-      `${bilingual("Penghantaran gagal", "Submit failed")}: ${error.message}`,
+      `Penghantaran gagal: ${error.message}`,
       "error",
       { position: "center" }
     );
-    setStatus(bilingual("Penghantaran gagal.", "Submit failed."));
+    setStatus("Penghantaran gagal.");
     return;
   }
 
@@ -688,7 +677,7 @@ const submitForm = async () => {
 const confirmForce = async () => {
   if (!state.pendingForceStart) {
     toast(
-      bilingual("Tiada permohonan paksa yang belum selesai.", "No force request pending."),
+      "Tiada permohonan paksa yang belum selesai.",
       "error",
       { position: "center" }
     );
@@ -697,7 +686,7 @@ const confirmForce = async () => {
   const driverId = state.pendingForceDriverId || driverSelect?.value;
   if (!driverId) {
     toast(
-      bilingual("Sila pilih pemandu sebelum mengesahkan paksa.", "Select a driver before confirming force."),
+      "Sila pilih pemandu sebelum mengesahkan paksa.",
       "error",
       { position: "center" }
     );
@@ -711,7 +700,7 @@ const confirmForce = async () => {
     });
     if (response.ok) {
       toast(
-        bilingual("Permohonan paksa 3 hari bekerja disahkan.", "Forced 3 working days confirmed."),
+        "Permohonan paksa 3 hari bekerja disahkan.",
         "ok",
         { position: "center" }
       );
@@ -722,14 +711,14 @@ const confirmForce = async () => {
       await refreshCapacityHints();
     } else {
       toast(
-        `${bilingual("Permohonan paksa gagal", "Force request failed")}: ${response.message || ""}`,
+        `Permohonan paksa gagal: ${response.message || ""}`,
         "error",
         { position: "center" }
       );
     }
   } catch (error) {
     toast(
-      `${bilingual("Permohonan paksa gagal", "Force request failed")}: ${error.message}`,
+      `Permohonan paksa gagal: ${error.message}`,
       "error",
       { position: "center" }
     );
@@ -740,7 +729,7 @@ const afterApplied = async (dates, { driver, driverId, notification } = {}) => {
   const appliedDates = Array.isArray(dates) ? dates : [];
   const approvedCount = appliedDates.length;
   setStatus(
-    `Penghantaran terakhir: ${approvedCount} hari diluluskan. / Last submission: ${approvedCount} day(s) approved.`
+    `Penghantaran terakhir: ${approvedCount} hari diluluskan.`
   );
   const resolvedDriver = driver || getDriverById(driverId);
   
@@ -756,10 +745,7 @@ const handleDateRangeChange = (selectedDates) => {
   if (!selectedDates || !selectedDates.length) {
     state.selected.start = null;
     state.selected.end = null;
-    setCapacityMessage(
-      "Sila pilih julat tarikh untuk melihat kapasiti.",
-      "Select a date range to view capacity."
-    );
+    setCapacityMessage("Sila pilih julat tarikh untuk melihat kapasiti.");
     return;
   }
 
@@ -770,10 +756,7 @@ const handleDateRangeChange = (selectedDates) => {
 
   if (!endDate) {
     state.selected.end = null;
-    setCapacityMessage(
-      "Sila pilih tarikh tamat untuk melihat kapasiti.",
-      "Select an end date to view capacity."
-    );
+    setCapacityMessage("Sila pilih tarikh tamat untuk melihat kapasiti.");
     return;
   }
 
@@ -794,7 +777,7 @@ const initializeDatePicker = () => {
   }
   const localeConfig =
     window.flatpickr?.l10ns?.ms
-      ? { ...window.flatpickr.l10ns.ms, rangeSeparator: " hingga / to " }
+      ? { ...window.flatpickr.l10ns.ms, rangeSeparator: " hingga " }
       : undefined;
   dateRangePicker = window.flatpickr(dateRangeInput, {
     mode: "range",
